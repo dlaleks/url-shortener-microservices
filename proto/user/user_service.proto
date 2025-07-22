@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "github.com/url-shortener-microservices/proto/user";
+option go_package = "github.com/url-shortener-microservices/proto/gen/user";
 
 import "google/protobuf/timestamp.proto";
 import "common/types.proto";
