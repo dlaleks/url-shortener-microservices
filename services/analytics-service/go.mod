@@ -1,4 +1,4 @@
-module github.com/url-shortener-microservices/services/url-service
+module github.com/url-shortener-microservices/services/analytics-service
 
 go 1.22
 

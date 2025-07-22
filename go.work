@@ -1,12 +1,9 @@
-
 go 1.22
 
 use (
-    ./proto
-    ./services/url-service
-    ./services/user-service
-    ./services/analytics-service
-    ./pkg/logger
-    ./pkg/config
-    ./pkg/errors
+	.
+	./proto
+	./services/analytics-service
+	./services/url-service
+	./services/user-service
 )
