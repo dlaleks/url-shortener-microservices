@@ -13,9 +13,17 @@ The project consists of three main microservices:
 
 - **Language**: Go 1.22+
 - **Databases**: PostgreSQL, Redis, MongoDB
-- **Message Brokers**: NATS, RabbitMQ, Kafka (phased approach)
+- **Message Brokers**:
+    - Phase 1: NATS (lightweight pub/sub)
+    - Phase 2: RabbitMQ (task queues, dead letter queues)
+    - Phase 3: Kafka (high-volume event streaming)
 - **Protocols**: REST, gRPC, WebSocket
-- **Observability**: OpenTelemetry, Prometheus, Grafana, Jaeger
+- **Additional Technologies**:
+    - Temporal (workflow orchestration)
+    - OpenTelemetry (modern observability)
+    - Rate limiting with sliding window
+    - Custom domains support
+    - QR code generation
 
 ## 🚀 Quick Start
 

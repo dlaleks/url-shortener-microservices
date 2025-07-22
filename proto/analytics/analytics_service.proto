@@ -1,0 +1,258 @@
+syntax = "proto3";
+
+package analytics;
+
+option go_package = "github.com/url-shortener-microservices/proto/analytics";
+
+import "google/protobuf/timestamp.proto";
+import "common/types.proto";
+
+// Click event data
+message ClickEvent {
+  string id = 1;                    // Unique event ID
+  string url_id = 2;                // Short URL ID that was clicked
+  string session_id = 3;            // User session identifier
+  string user_id = 4;               // User ID (if authenticated, empty if anonymous)
+  
+  // Request details
+  string ip_address = 5;            // Client IP (anonymized for privacy)
+  string user_agent = 6;            // Browser/client information
+  string referrer = 7;              // Where the click came from
+  string country = 8;               // Geo-location country
+  string city = 9;                  // Geo-location city
+  
+  // Device/Browser info
+  string device_type = 10;          // "desktop", "mobile", "tablet"
+  string browser = 11;              // "chrome", "firefox", "safari", etc.
+  string os = 12;                   // "windows", "macos", "android", etc.
+  
+  // Timing
+  google.protobuf.Timestamp clicked_at = 13;
+  int32 response_time_ms = 14;      // Time to serve redirect
+  
+  // Campaign tracking (UTM parameters)
+  string utm_source = 15;
+  string utm_medium = 16;
+  string utm_campaign = 17;
+  string utm_term = 18;
+  string utm_content = 19;
+}
+
+// Request messages
+message RecordClickRequest {
+  string url_id = 1;
+  string session_id = 2;
+  string user_id = 3;
+  string ip_address = 4;
+  string user_agent = 5;
+  string referrer = 6;
+  
+  // Optional UTM parameters
+  string utm_source = 7;
+  string utm_medium = 8;
+  string utm_campaign = 9;
+  string utm_term = 10;
+  string utm_content = 11;
+}
+
+message RecordClickResponse {
+  common.Response status = 1;
+  string event_id = 2;              // Generated event ID
+}
+
+// Get analytics for a specific URL
+message GetURLAnalyticsRequest {
+  string url_id = 1;
+  string user_id = 2;               // Must be owner or admin
+  common.DateFilter date_range = 3;
+  string granularity = 4;           // "hour", "day", "week", "month"
+}
+
+message URLAnalytics {
+  string url_id = 1;
+  int64 total_clicks = 2;
+  int64 unique_visitors = 3;        // Based on session_id
+  
+  // Time series data
+  repeated TimeSeriesPoint click_timeline = 4;
+  
+  // Geographic breakdown
+  repeated GeographicStat countries = 5;
+  repeated GeographicStat cities = 6;
+  
+  // Technology breakdown
+  repeated TechnologyStat browsers = 7;
+  repeated TechnologyStat operating_systems = 8;
+  repeated TechnologyStat devices = 9;
+  
+  // Traffic sources
+  repeated ReferrerStat referrers = 10;
+  repeated UTMStat utm_sources = 11;
+  repeated UTMStat utm_campaigns = 12;
+  
+  // Time-based stats
+  repeated HourStat clicks_by_hour = 13;    // 0-23 hours
+  repeated DayStat clicks_by_day = 14;      // 1-7 days of week
+}
+
+message GetURLAnalyticsResponse {
+  common.Response status = 1;
+  URLAnalytics analytics = 2;
+}
+
+// Get analytics for all URLs of a user
+message GetUserAnalyticsRequest {
+  string user_id = 1;
+  common.DateFilter date_range = 2;
+  common.PaginationRequest pagination = 3;
+  string sort_by = 4;               // "clicks", "created_at", "last_click"
+}
+
+message UserAnalytics {
+  string user_id = 1;
+  int64 total_urls = 2;
+  int64 total_clicks = 3;
+  int64 total_unique_visitors = 4;
+  
+  // Top performing URLs
+  repeated URLStat top_urls = 5;
+  
+  // Aggregated stats
+  repeated TimeSeriesPoint click_timeline = 6;
+  repeated GeographicStat top_countries = 7;
+  repeated ReferrerStat top_referrers = 8;
+}
+
+message GetUserAnalyticsResponse {
+  common.Response status = 1;
+  UserAnalytics analytics = 2;
+}
+
+// Real-time analytics
+message GetRealTimeAnalyticsRequest {
+  string user_id = 1;               // Get real-time data for user's URLs
+  int32 last_minutes = 2;           // Last N minutes (default: 60)
+}
+
+message RealTimeAnalytics {
+  int64 active_sessions = 1;        // Current active sessions
+  int64 clicks_last_hour = 2;
+  int64 clicks_last_minute = 3;
+  
+  // Recent clicks stream
+  repeated ClickEvent recent_clicks = 4;
+  
+  // Live counters
+  repeated URLStat active_urls = 5;  // URLs with recent activity
+}
+
+message GetRealTimeAnalyticsResponse {
+  common.Response status = 1;
+  RealTimeAnalytics analytics = 2;
+}
+
+// Export analytics data
+message ExportAnalyticsRequest {
+  string user_id = 1;
+  repeated string url_ids = 2;      // Specific URLs or empty for all
+  common.DateFilter date_range = 3;
+  string format = 4;                // "csv", "json", "excel"
+  bool include_personal_data = 5;   // Include IP addresses, etc.
+}
+
+message ExportAnalyticsResponse {
+  common.Response status = 1;
+  string download_url = 2;          // Pre-signed URL for download
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// Supporting message types
+message TimeSeriesPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  int64 value = 2;
+  int64 unique_visitors = 3;
+}
+
+message GeographicStat {
+  string name = 1;                  // Country/city name
+  string code = 2;                  // Country/city code
+  int64 clicks = 3;
+  int64 unique_visitors = 4;
+  double percentage = 5;
+}
+
+message TechnologyStat {
+  string name = 1;                  // Browser/OS/device name
+  string version = 2;               // Version if applicable
+  int64 clicks = 3;
+  int64 unique_visitors = 4;
+  double percentage = 5;
+}
+
+message ReferrerStat {
+  string domain = 1;                // Referring domain
+  string url = 2;                   // Full referring URL (if available)
+  int64 clicks = 3;
+  int64 unique_visitors = 4;
+  double percentage = 5;
+}
+
+message UTMStat {
+  string name = 1;                  // UTM source/medium/campaign name
+  int64 clicks = 2;
+  int64 unique_visitors = 3;
+  double percentage = 4;
+}
+
+message HourStat {
+  int32 hour = 1;                   // 0-23
+  int64 clicks = 2;
+  int64 unique_visitors = 3;
+}
+
+message DayStat {
+  int32 day_of_week = 1;            // 1-7 (1 = Monday)
+  int64 clicks = 2;
+  int64 unique_visitors = 3;
+}
+
+message URLStat {
+  string url_id = 1;
+  string title = 2;
+  string short_url = 3;
+  int64 clicks = 4;
+  int64 unique_visitors = 5;
+  google.protobuf.Timestamp last_click = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// Streaming for real-time updates
+message StreamAnalyticsRequest {
+  string user_id = 1;
+  repeated string url_ids = 2;      // Stream specific URLs or all user URLs
+}
+
+message StreamAnalyticsResponse {
+  oneof event {
+    ClickEvent new_click = 1;
+    URLStat url_update = 2;
+  }
+}
+
+// gRPC service definition
+service AnalyticsService {
+  // Core analytics operations
+  rpc RecordClick(RecordClickRequest) returns (RecordClickResponse);
+  rpc GetURLAnalytics(GetURLAnalyticsRequest) returns (GetURLAnalyticsResponse);
+  rpc GetUserAnalytics(GetUserAnalyticsRequest) returns (GetUserAnalyticsResponse);
+  rpc GetRealTimeAnalytics(GetRealTimeAnalyticsRequest) returns (GetRealTimeAnalyticsResponse);
+  
+  // Data export
+  rpc ExportAnalytics(ExportAnalyticsRequest) returns (ExportAnalyticsResponse);
+  
+  // Real-time streaming (Server-side streaming)
+  rpc StreamAnalytics(StreamAnalyticsRequest) returns (stream StreamAnalyticsResponse);
+  
+  // Health check
+  rpc HealthCheck(common.HealthCheckRequest) returns (common.HealthCheckResponse);
+}

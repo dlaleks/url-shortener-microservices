@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package common;
+
+option go_package = "github.com/url-shortener-microservices/proto/common";
+
+import "google/protobuf/timestamp.proto";
+
+// Common error response structure
+message Error {
+  string code = 1;        // Error code (e.g., "INVALID_URL", "NOT_FOUND")
+  string message = 2;     // Human-readable error message
+  string field = 3;       // Field name if validation error
+}
+
+// Standard response wrapper for all services
+message Response {
+  bool success = 1;
+  repeated Error errors = 2;
+  string request_id = 3;  // For tracing
+}
+
+// Pagination request parameters
+message PaginationRequest {
+  int32 page = 1;         // Page number (1-based)
+  int32 limit = 2;        // Items per page (max 100)
+  string sort_by = 3;     // Field to sort by
+  bool desc = 4;          // Sort descending if true
+}
+
+// Pagination response metadata
+message PaginationResponse {
+  int32 page = 1;
+  int32 limit = 2;
+  int32 total_pages = 3;
+  int64 total_items = 4;
+  bool has_next = 5;
+  bool has_prev = 6;
+}
+
+// Generic filter for date ranges
+message DateFilter {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+}
+
+// Health check messages
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+  ServingStatus status = 1;
+  string message = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// User context (for authorization)
+message UserContext {
+  string user_id = 1;
+  string email = 2;
+  repeated string roles = 3;
+  bool is_premium = 4;
+}
+
+// Rate limiting information
+message RateLimit {
+  int32 limit = 1;        // Requests per window
+  int32 remaining = 2;    // Remaining requests
+  int32 reset_time = 3;   // Unix timestamp when limit resets
+}

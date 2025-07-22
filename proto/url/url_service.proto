@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package url;
+
+option go_package = "github.com/url-shortener-microservices/proto/url";
+
+import "google/protobuf/timestamp.proto";
+import "common/types.proto";
+
+// URL entity
+message URL {
+  string id = 1;                    // Short code (e.g., "abc123")
+  string original_url = 2;          // Full original URL
+  string short_url = 3;             // Complete short URL (domain + id)
+  string user_id = 4;               // Owner user ID (empty if anonymous)
+  string title = 5;                 // Optional custom title
+  string description = 6;           // Optional description
+  
+  // Metadata
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp expires_at = 8;  // Optional expiration
+  google.protobuf.Timestamp updated_at = 9;
+  
+  // Statistics (cached from Analytics service)
+  int64 click_count = 10;
+  google.protobuf.Timestamp last_accessed = 11;
+  
+  // Features
+  bool is_active = 12;              // Can be disabled by user/admin
+  bool is_custom = 13;              // Custom short code vs generated
+  string password = 14;             // Optional password protection (hashed)
+  repeated string tags = 15;        // User-defined tags
+}
+
+// Request messages
+message CreateURLRequest {
+  string original_url = 1;          // Required: URL to shorten
+  string custom_code = 2;           // Optional: preferred short code
+  string user_id = 3;               // Optional: user ID
+  string title = 4;                 // Optional: custom title
+  string description = 5;           // Optional: description
+  string password = 6;              // Optional: password protection
+  google.protobuf.Timestamp expires_at = 7; // Optional: expiration date
+  repeated string tags = 8;         // Optional: tags
+}
+
+message CreateURLResponse {
+  common.Response status = 1;
+  URL url = 2;
+}
+
+message GetURLRequest {
+  string id = 1;                    // Short code
+  string password = 2;              // If password protected
+  bool include_stats = 3;           // Include click statistics
+}
+
+message GetURLResponse {
+  common.Response status = 1;
+  URL url = 2;
+  bool password_required = 3;       // True if password needed but not provided
+}
+
+message UpdateURLRequest {
+  string id = 1;                    // Short code to update
+  string user_id = 2;               // Must match owner
+  
+  // Optional fields to update
+  optional string title = 3;
+  optional string description = 4;
+  optional string password = 5;      // Set/change/remove password
+  optional bool is_active = 6;
+  repeated string tags = 7;
+  optional google.protobuf.Timestamp expires_at = 8;
+}
+
+message UpdateURLResponse {
+  common.Response status = 1;
+  URL url = 2;
+}
+
+message DeleteURLRequest {
+  string id = 1;
+  string user_id = 2;               // Must match owner or be admin
+}
+
+message DeleteURLResponse {
+  common.Response status = 1;
+}
+
+// List URLs for a user
+message ListURLsRequest {
+  string user_id = 1;
+  common.PaginationRequest pagination = 2;
+  string search = 3;                // Search in title, description, tags
+  repeated string tags = 4;         // Filter by tags
+  bool active_only = 5;             // Show only active URLs
+}
+
+message ListURLsResponse {
+  common.Response status = 1;
+  repeated URL urls = 2;
+  common.PaginationResponse pagination = 3;
+}
+
+// Validate URL request (check if URL is valid and accessible)
+message ValidateURLRequest {
+  string url = 1;
+}
+
+message ValidateURLResponse {
+  common.Response status = 1;
+  bool is_valid = 2;
+  bool is_accessible = 3;           // Can be reached via HTTP
+  string detected_title = 4;        // Scraped page title
+  string content_type = 5;          // MIME type
+  int32 status_code = 6;            // HTTP status code
+}
+
+// Check if custom code is available
+message CheckAvailabilityRequest {
+  string custom_code = 1;
+}
+
+message CheckAvailabilityResponse {
+  common.Response status = 1;
+  bool is_available = 2;
+  repeated string suggestions = 3;   // Alternative suggestions if not available
+}
+
+// Bulk operations for premium users
+message BulkCreateURLRequest {
+  repeated CreateURLRequest urls = 1;
+  string user_id = 2;
+}
+
+message BulkCreateURLResponse {
+  common.Response status = 1;
+  repeated URL urls = 2;
+  repeated common.Error errors = 3; // Per-URL errors
+}
+
+// Analytics integration - increment click count
+message IncrementClickRequest {
+  string url_id = 1;
+  string user_agent = 2;
+  string ip_address = 3;
+  string referrer = 4;
+}
+
+message IncrementClickResponse {
+  common.Response status = 1;
+  int64 new_count = 2;
+}
+
+// gRPC service definition
+service URLService {
+  // Core CRUD operations
+  rpc CreateURL(CreateURLRequest) returns (CreateURLResponse);
+  rpc GetURL(GetURLRequest) returns (GetURLResponse);
+  rpc UpdateURL(UpdateURLRequest) returns (UpdateURLResponse);
+  rpc DeleteURL(DeleteURLRequest) returns (DeleteURLResponse);
+  
+  // Listing and search
+  rpc ListURLs(ListURLsRequest) returns (ListURLsResponse);
+  
+  // Utility operations
+  rpc ValidateURL(ValidateURLRequest) returns (ValidateURLResponse);
+  rpc CheckAvailability(CheckAvailabilityRequest) returns (CheckAvailabilityResponse);
+  
+  // Bulk operations
+  rpc BulkCreateURL(BulkCreateURLRequest) returns (BulkCreateURLResponse);
+  
+  // Analytics integration
+  rpc IncrementClick(IncrementClickRequest) returns (IncrementClickResponse);
+  
+  // Health check
+  rpc HealthCheck(common.HealthCheckRequest) returns (common.HealthCheckResponse);
+}

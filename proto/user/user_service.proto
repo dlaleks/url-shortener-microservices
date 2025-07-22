@@ -1,0 +1,396 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "github.com/url-shortener-microservices/proto/user";
+
+import "google/protobuf/timestamp.proto";
+import "common/types.proto";
+
+// User entity
+message User {
+  string id = 1;                    // UUID
+  string email = 2;                 // Unique email address
+  string username = 3;              // Optional unique username
+  string full_name = 4;             // Display name
+  string avatar_url = 5;            // Profile picture URL
+  
+  // Authentication
+  bool email_verified = 6;
+  google.protobuf.Timestamp last_login = 7;
+  
+  // Account status
+  bool is_active = 8;               // Account enabled/disabled
+  bool is_premium = 9;              // Premium subscription status
+  google.protobuf.Timestamp premium_expires = 10;
+  
+  // Timestamps
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  
+  // Settings
+  UserSettings settings = 13;
+  
+  // OAuth providers
+  repeated OAuthProvider oauth_providers = 14;
+  
+  // Usage statistics (cached)
+  int64 total_urls = 15;
+  int64 total_clicks = 16;
+  int64 monthly_urls = 17;          // URLs created this month
+  int64 monthly_clicks = 18;        // Clicks this month
+}
+
+// User settings/preferences
+message UserSettings {
+  bool public_profile = 1;          // Profile visible to others
+  bool analytics_enabled = 2;       // Enable click tracking
+  bool email_notifications = 3;     // Send email notifications
+  string timezone = 4;              // User timezone
+  string language = 5;              // Preferred language
+  string default_domain = 6;        // Default short domain
+  bool require_https = 7;           // Force HTTPS on short URLs
+}
+
+// OAuth provider information
+message OAuthProvider {
+  string provider = 1;              // "google", "github", "facebook"
+  string provider_id = 2;           // External user ID
+  string email = 3;                 // Email from provider
+  google.protobuf.Timestamp linked_at = 4;
+}
+
+// API Key for programmatic access
+message APIKey {
+  string id = 1;                    // Key ID
+  string name = 2;                  // User-defined name
+  string key_hash = 3;              // Hashed key (not returned to client)
+  string key_prefix = 4;            // First few chars for identification
+  repeated string permissions = 5;   // "read", "write", "delete"
+  repeated string scopes = 6;       // Resource scopes
+  bool is_active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp last_used = 9;
+  google.protobuf.Timestamp expires_at = 10;
+  int64 usage_count = 11;
+  int64 rate_limit = 12;            // Requests per hour
+}
+
+// User registration/authentication
+message RegisterRequest {
+  string email = 1;
+  string password = 2;              // Plain text (will be hashed)
+  string username = 3;              // Optional
+  string full_name = 4;
+  string referral_code = 5;         // Optional referral
+}
+
+message RegisterResponse {
+  common.Response status = 1;
+  User user = 2;
+  string verification_token = 3;    // Email verification token
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string totp_code = 3;             // 2FA code if enabled
+  bool remember_me = 4;
+}
+
+message LoginResponse {
+  common.Response status = 1;
+  User user = 2;
+  string access_token = 3;          // JWT access token
+  string refresh_token = 4;         // JWT refresh token
+  google.protobuf.Timestamp expires_at = 5;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  common.Response status = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+// OAuth authentication
+message OAuthLoginRequest {
+  string provider = 1;              // "google", "github", etc.
+  string code = 2;                  // Authorization code
+  string state = 3;                 // CSRF protection
+  string redirect_uri = 4;
+}
+
+message OAuthLoginResponse {
+  common.Response status = 1;
+  User user = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+  bool is_new_user = 5;             // True if just registered
+}
+
+// Profile management
+message GetUserRequest {
+  string user_id = 1;
+  string email = 2;                 // Alternative lookup
+}
+
+message GetUserResponse {
+  common.Response status = 1;
+  User user = 2;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  
+  // Fields to update (optional)
+  optional string username = 2;
+  optional string full_name = 3;
+  optional string avatar_url = 4;
+  optional UserSettings settings = 5;
+}
+
+message UpdateUserResponse {
+  common.Response status = 1;
+  User user = 2;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string current_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  common.Response status = 1;
+}
+
+// Email verification
+message VerifyEmailRequest {
+  string token = 1;
+}
+
+message VerifyEmailResponse {
+  common.Response status = 1;
+  User user = 2;
+}
+
+message ResendVerificationRequest {
+  string email = 1;
+}
+
+message ResendVerificationResponse {
+  common.Response status = 1;
+}
+
+// Password reset
+message ForgotPasswordRequest {
+  string email = 1;
+}
+
+message ForgotPasswordResponse {
+  common.Response status = 1;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {
+  common.Response status = 1;
+}
+
+// API Key management
+message CreateAPIKeyRequest {
+  string user_id = 1;
+  string name = 2;
+  repeated string permissions = 3;
+  repeated string scopes = 4;
+  int64 rate_limit = 5;             // Requests per hour
+  google.protobuf.Timestamp expires_at = 6; // Optional expiration
+}
+
+message CreateAPIKeyResponse {
+  common.Response status = 1;
+  APIKey api_key = 2;
+  string raw_key = 3;               // Only returned once!
+}
+
+message ListAPIKeysRequest {
+  string user_id = 1;
+  common.PaginationRequest pagination = 2;
+}
+
+message ListAPIKeysResponse {
+  common.Response status = 1;
+  repeated APIKey api_keys = 2;
+  common.PaginationResponse pagination = 3;
+}
+
+message RevokeAPIKeyRequest {
+  string user_id = 1;
+  string key_id = 2;
+}
+
+message RevokeAPIKeyResponse {
+  common.Response status = 1;
+}
+
+// Rate limiting
+message GetRateLimitRequest {
+  string user_id = 1;
+  string api_key_id = 2;            // For API key rate limits
+  string endpoint = 3;              // Endpoint-specific limits
+}
+
+message GetRateLimitResponse {
+  common.Response status = 1;
+  common.RateLimit rate_limit = 2;
+  bool is_limited = 3;
+}
+
+message IncrementRateLimitRequest {
+  string user_id = 1;
+  string api_key_id = 2;
+  string endpoint = 3;
+  int32 increment = 4;              // Usually 1
+}
+
+message IncrementRateLimitResponse {
+  common.Response status = 1;
+  common.RateLimit rate_limit = 2;
+  bool is_limited = 3;
+}
+
+// User validation (internal)
+message ValidateTokenRequest {
+  string token = 1;
+  string token_type = 2;            // "access", "refresh", "verification"
+}
+
+message ValidateTokenResponse {
+  common.Response status = 1;
+  bool is_valid = 2;
+  common.UserContext user_context = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message ValidateAPIKeyRequest {
+  string api_key = 1;
+  string endpoint = 2;              // For permission check
+}
+
+message ValidateAPIKeyResponse {
+  common.Response status = 1;
+  bool is_valid = 2;
+  APIKey api_key_info = 3;
+  common.UserContext user_context = 4;
+}
+
+// Premium/subscription management
+message UpgradeToPremiumRequest {
+  string user_id = 1;
+  string payment_token = 2;         // Stripe payment token
+  string plan_id = 3;               // "monthly", "yearly"
+}
+
+message UpgradeToPremiumResponse {
+  common.Response status = 1;
+  User user = 2;
+  string subscription_id = 3;
+}
+
+message GetSubscriptionRequest {
+  string user_id = 1;
+}
+
+message SubscriptionInfo {
+  string subscription_id = 1;
+  string plan_id = 2;
+  string status = 3;                // "active", "canceled", "past_due"
+  google.protobuf.Timestamp current_period_end = 4;
+  bool cancel_at_period_end = 5;
+  double amount = 6;
+  string currency = 7;
+}
+
+message GetSubscriptionResponse {
+  common.Response status = 1;
+  SubscriptionInfo subscription = 2;
+}
+
+// Admin operations
+message ListUsersRequest {
+  common.PaginationRequest pagination = 1;
+  string search = 2;                // Search by email, username, name
+  bool premium_only = 3;
+  bool active_only = 4;
+}
+
+message ListUsersResponse {
+  common.Response status = 1;
+  repeated User users = 2;
+  common.PaginationResponse pagination = 3;
+}
+
+message BanUserRequest {
+  string admin_user_id = 1;
+  string target_user_id = 2;
+  string reason = 3;
+  google.protobuf.Timestamp until = 4; // Optional temporary ban
+}
+
+message BanUserResponse {
+  common.Response status = 1;
+}
+
+// gRPC service definition
+service UserService {
+  // Authentication
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc OAuthLogin(OAuthLoginRequest) returns (OAuthLoginResponse);
+  
+  // Email verification
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc ResendVerification(ResendVerificationRequest) returns (ResendVerificationResponse);
+  
+  // Password management
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc ForgotPassword(ForgotPasswordRequest) returns (ForgotPasswordResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  
+  // Profile management
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  
+  // API Key management
+  rpc CreateAPIKey(CreateAPIKeyRequest) returns (CreateAPIKeyResponse);
+  rpc ListAPIKeys(ListAPIKeysRequest) returns (ListAPIKeysResponse);
+  rpc RevokeAPIKey(RevokeAPIKeyRequest) returns (RevokeAPIKeyResponse);
+  
+  // Rate limiting
+  rpc GetRateLimit(GetRateLimitRequest) returns (GetRateLimitResponse);
+  rpc IncrementRateLimit(IncrementRateLimitRequest) returns (IncrementRateLimitResponse);
+  
+  // Token/API key validation (internal)
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc ValidateAPIKey(ValidateAPIKeyRequest) returns (ValidateAPIKeyResponse);
+  
+  // Premium/subscription
+  rpc UpgradeToPremium(UpgradeToPremiumRequest) returns (UpgradeToPremiumResponse);
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+  
+  // Admin operations
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc BanUser(BanUserRequest) returns (BanUserResponse);
+  
+  // Health check
+  rpc HealthCheck(common.HealthCheckRequest) returns (common.HealthCheckResponse);
+}
